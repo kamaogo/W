@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>BuzzShorts Pro</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+body{background:#000;color:#fff;font-family:system-ui,Segoe UI,sans-serif;overflow:hidden}
+
+/* VIDEO FEED */
+#video-feed{height:100vh;width:100vw;overflow-y:scroll;scroll-snap-type:y mandatory}
+#video-feed::-webkit-scrollbar{display:none}
+.video-card{position:relative;height:100vh;width:100vw;scroll-snap-align:start;background:#000}
+iframe{width:100%;height:100%;border:none}
+
+/* SIDE ACTIONS */
+.side-actions{position:absolute;right:15px;bottom:150px;display:flex;flex-direction:column;gap:22px;z-index:50}
+.action-item{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2)}
+.action-item i{font-size:22px}
+.like.active{color:#ff3b3b}
+
+/* VIDEO META */
+.video-meta{position:absolute;bottom:130px;left:15px;width:70%}
+.video-meta h3{color:#00f2ff;font-size:17px}
+.video-meta p{font-size:14px;opacity:.8}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;width:100%;height:60px;background:#000;display:flex;justify-content:space-around;align-items:center;border-top:1px solid #222;z-index:100}
+.bottom-nav i{font-size:22px;color:#777}
+.bottom-nav i.active{color:#00f2ff}
+
+/* AD BAR */
+#ad{position:fixed;bottom:65px;left:5%;width:90%;height:45px;background:#111;border:1px solid #00f2ff;border-radius:12px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;z-index:90}
+
+/* PROFILE PAGE */
+#profile-page{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:none;z-index:9999;overflow-y:auto}
+.profile-cover{width:100%;height:160px;background:url('https://picsum.photos/600/300') center/cover no-repeat;position:relative}
+.profile-avatar{width:120px;height:120px;border-radius:50%;border:3px solid #00f2ff;position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);background:#333}
+.profile-header{text-align:center;padding-top:80px}
+.profile-item{background:#111;margin:12px;border-radius:12px;padding:15px;display:flex;justify-content:space-between;align-items:center}
+
+/* EDIT MODAL */
+#editModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10000;align-items:center;justify-content:center}
+#editModal .box{background:#111;padding:20px;border-radius:12px;width:85%}
+#editModal input{width:100%;padding:8px;margin-bottom:10px;background:#000;color:#fff;border:1px solid #333}
+#editModal button{width:100%;padding:10px;border:none;border-radius:8px;margin-top:5px}
+</style>
+</head>
+<body>
+
+<!-- VIDEO FEED -->
+<div id="video-feed"></div>
+
+<!-- AD BAR -->
+<div id="ad">
+  <span>🔥 Win Rewards Every Hour!</span>
+  <button>JOIN</button>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <i class="fas fa-home active" onclick="goHome()"></i>
+  <i class="fas fa-bolt"></i>
+  <i class="fas fa-plus-square"></i>
+  <i class="fas fa-wallet"></i>
+  <i class="fas fa-user-circle" onclick="openProfile()"></i>
+</div>
+
+<!-- PROFILE PAGE -->
+<div id="profile-page">
+  <div class="profile-cover" id="coverPreview">
+    <div class="profile-avatar" id="avatarPreview"></div>
+  </div>
+  <div class="profile-header">
+    <h2 id="namePreview">Bayu</h2>
+    <p style="opacity:.6;font-size:12px">Permit ID: MID-1767802939368-****</p>
+  </div>
+  <div class="profile-item" onclick="openEdit()">Edit Profile <i class="fas fa-chevron-right"></i></div>
+  <div class="profile-item">My Analytics <i class="fas fa-chevron-right"></i></div>
+  <div class="profile-item">Blocked List <i class="fas fa-chevron-right"></i></div>
+  <div class="profile-item">Security Settings <i class="fas fa-chevron-right"></i></div>
+  <div class="profile-item" onclick="closeProfile()" style="color:#ff3b3b">Close</div>
+</div>
+
+<!-- EDIT PROFILE MODAL -->
+<div id="editModal">
+  <div class="box">
+    <h3>Edit Profile</h3><br>
+    <input type="text" id="nameInput" placeholder="Your Name">
+    <label>Profile Photo</label>
+    <input type="file" accept="image/*" onchange="loadAvatar(event)">
+    <label>Cover Photo</label>
+    <input type="file" accept="image/*" onchange="loadCover(event)">
+    <button style="background:#00f2ff" onclick="saveProfile()">Save</button>
+    <button style="background:#333;color:#fff" onclick="closeEdit()">Cancel</button>
+  </div>
+</div>
+
+<script>
+const MAX_MB = 2; // Maximum size after first rough compress
+const vids=[
+  {id:'x8m9fzq',name:'@DanceQueen',desc:'Trending dance video'},
+  {id:'x8p2v7m',name:'@MusicLover',desc:'Best music vibes'},
+  {id:'x8q4k9n',name:'@StreetFood',desc:'Street food vlog'}
+];
+const feed=document.getElementById('video-feed');
+
+// ADD VIDEO CARD
+function addVideo(v){
+  const d=document.createElement('div');
+  d.className='video-card';
+  d.innerHTML=`
+    <iframe src="https://www.dailymotion.com/embed/video/${v.id}?autoplay=1&mute=1&controls=0"></iframe>
+    <div class="side-actions">
+      <div class="action-item like" onclick="this.classList.toggle('active')"><i class="fas fa-heart"></i></div>
+      <div class="action-item" onclick="shareVid('${v.id}')"><i class="fas fa-share"></i></div>
+    </div>
+    <div class="video-meta"><h3>${v.name}</h3><p>${v.desc}</p></div>`;
+  feed.appendChild(d);
+}
+
+// INITIALIZE FEED
+function init(){for(let i=0;i<5;i++)addVideo(vids[i%vids.length])}
+
+// SHARE VIDEO
+function shareVid(id){alert("Link copied: https://www.dailymotion.com/video/"+id)}
+
+// PROFILE HANDLERS
+function openProfile(){document.getElementById('profile-page').style.display='block'}
+function closeProfile(){document.getElementById('profile-page').style.display='none'}
+function goHome(){closeProfile()}
+
+// EDIT PROFILE MODAL
+function openEdit(){document.getElementById('editModal').style.display='flex'}
+function closeEdit(){document.getElementById('editModal').style.display='none'}
+
+// LOAD & TWO-STEP COMPRESS AVATAR
+function loadAvatar(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    twoStepCompress(evt.target.result,120,120,(compressedData)=>{
+      document.getElementById('avatarPreview').style.background=`url(${compressedData}) center/cover no-repeat`;
+    });
+  }
+  reader.readAsDataURL(file);
+}
+
+// LOAD & TWO-STEP COMPRESS COVER
+function loadCover(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    twoStepCompress(evt.target.result,600,300,(compressedData)=>{
+      document.getElementById('coverPreview').style.background=`url(${compressedData}) center/cover no-repeat`;
+    });
+  }
+  reader.readAsDataURL(file);
+}
+
+// TWO-STEP COMPRESS FUNCTION
+function twoStepCompress(dataUrl, maxWidth, maxHeight, callback){
+  const img = new Image();
+  img.onload = function(){
+    // Step 1: rough compress to MAX_MB
+    let w = img.width;
+    let h = img.height;
+    let scale = 1;
+    const ratio = w/h;
+    // Resize to roughly fit maxWidth/maxHeight
+    if(w>maxWidth){scale=maxWidth/w; w=maxWidth; h=h*scale;}
+    if(h>maxHeight){scale=maxHeight/h; h=maxHeight; w=h*ratio;}
+
+    const canvas1=document.createElement('canvas');
+    canvas1.width=w; canvas1.height=h;
+    const ctx1=canvas1.getContext('2d');
+    ctx1.drawImage(img,0,0,w,h);
+
+    let quality1 = 0.7; // rough compress quality
+    let data1 = canvas1.toDataURL('image/jpeg', quality1);
+
+    // Step 2: final compress
+    const canvas2=document.createElement('canvas');
+    canvas2.width=w; canvas2.height=h;
+    const ctx2=canvas2.getContext('2d');
+    const img2=new Image();
+    img2.onload=function(){
+      ctx2.drawImage(img2,0,0,w,h);
+      const finalData = canvas2.toDataURL('image/jpeg', 0.8);
+      callback(finalData);
+    }
+    img2.src=data1;
+  }
+  img.src=dataUrl;
+}
+
+// SAVE PROFILE
+function saveProfile(){
+  const name = document.getElementById('nameInput').value || 'Bayu';
+  document.getElementById('namePreview').innerText=name;
+  closeEdit();
+}
+
+// SCROLL TO LOAD MORE VIDEOS
+feed.onscroll=()=>{if(feed.scrollTop+feed.clientHeight>=feed.scrollHeight-10)addVideo(vids[Math.floor(Math.random()*vids.length)])}
+window.onload=init;
+</script>
+</body>
+</html>
